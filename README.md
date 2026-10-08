@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: YuriGuernsey/BuffTomo@v1
+      - uses: YuriGuernsey/BuffTomo@main   # or @v1 once a release is tagged
         with:
           username: your-username            # change me
           monster: drako                     # beastor | drako | pumpkin | neko | shadow | random
