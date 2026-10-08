@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: YOUR-GITHUB-USER/BuffTomo@v1   # wherever this repo lives
+      - uses: YuriGuernsey/BuffTomo@v1
         with:
           username: your-username            # change me
           monster: drako                     # beastor | drako | pumpkin | neko | shadow | random
