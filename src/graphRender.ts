@@ -1,8 +1,9 @@
 // Renders OUR OWN contribution graph (real data via GraphQL) with a small
-// front-facing kitty hopping along the top of it. Zero dependencies.
+// BuffTomo monster hopping along the top of it. Zero dependencies.
 // TypeScript port of graph_render.py.
 
 import * as sprites from "./sprites.ts";
+import { drawMini, current, GRID_W, GRID_H } from "./monsters.ts";
 import type { Calendar } from "./graphApi.ts";
 
 const SCALE = 3;
@@ -53,35 +54,15 @@ function rects(grid: string[], colors: Record<string, string>, x0: number, y0: n
 function kitty(state: string, pal: any, colors: Record<string, string>, xMin: number, xMax: number): string[] {
     const dur = STATE_TEMPO[state] ?? 30;
     const kt = "0;0.45;0.5;0.95;1";
-    const yb = TOP - 14 * SCALE - 4;
+    const yb = TOP - GRID_H * SCALE - 4;
     const cat: string[] = [
         `<g><animateTransform attributeName="transform" type="translate" values="${xMin} 0;${xMax} 0;${xMax} 0;${xMin} 0;${xMin} 0" keyTimes="${kt}" dur="${dur}s" repeatCount="indefinite"/>`,
         `<g><animateTransform attributeName="transform" type="translate" values="0 0;0 -4;0 0" keyTimes="0;0.5;1" dur="0.9s" repeatCount="indefinite"/>`,
     ];
-    const body = rects(sprites.FRONT_BODY, colors, 0, yb);
-    const extras: string[] = [];
-    const overlays: Array<[Array<[number, number]>, string]> = [
-        [sprites.FRONT_INNER_EARS, pal.pink],
-        [sprites.FRONT_COLLAR_BAND, pal.collar],
-        [sprites.FRONT_COLLAR_TAG, pal.tag],
-    ];
-    for (const [coords, col] of overlays) {
-        for (const [px, py] of coords) {
-            extras.push(`<rect x="${px * SCALE}" y="${yb + py * SCALE}" width="${SCALE}" height="${SCALE}" fill="${col}"/>`);
-        }
-    }
-    cat.push(...body, ...extras);
-    for (const [wx, wy] of sprites.FRONT_WHISKERS) {
-        const x = wx * SCALE - (wx < 8 ? 2 * SCALE : -SCALE);
-        cat.push(`<rect x="${x}" y="${yb + wy * SCALE + 1}" width="${3 * SCALE}" height="1.5" fill="${pal.body}" opacity="0.8"/>`);
-    }
-    const openR = sprites.FRONT_EYES.map(([ex, ey]) => `<rect x="${ex * SCALE}" y="${yb + ey * SCALE}" width="${SCALE}" height="${SCALE}" fill="${pal.accent}"/>`).join("");
-    const lidR = sprites.FRONT_EYES.map(([ex, ey]) => `<rect x="${ex * SCALE}" y="${yb + ey * SCALE}" width="${2 * SCALE}" height="${SCALE}" fill="${pal.lid}"/>`).join("");
-    cat.push(`<g><animate attributeName="opacity" values="1;0;1" keyTimes="0;0.96;1" calcMode="discrete" dur="4s" repeatCount="indefinite"/>${openR}</g>`);
-    cat.push(`<g opacity="0"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.96;1" calcMode="discrete" dur="4s" repeatCount="indefinite"/>${lidR}</g>`);
+    cat.push(...drawMini(SCALE, yb, state, pal.collar));
     if (state === "content") {
         for (const [beg, ox] of [["0.6s", 8 * SCALE], ["2.1s", 11 * SCALE]] as Array<[string, number]>) {
-            const cells = rects(sprites.HEART, { h: pal.heart }, ox, TOP - 14 * SCALE - 16, 2).join("");
+            const cells = rects(sprites.HEART, { h: pal.heart }, ox, TOP - GRID_H * SCALE - 16, 2).join("");
             cat.push(`<g opacity="0"><animateTransform attributeName="transform" type="translate" values="0 0;4 -12" dur="2.4s" begin="${beg}" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.2;0.7;1" dur="2.4s" begin="${beg}" repeatCount="indefinite"/>${cells}</g>`);
         }
     }
@@ -91,11 +72,10 @@ function kitty(state: string, pal: any, colors: Record<string, string>, xMin: nu
 
 export function buildGraphSvg(state: string, caption: string, calendar: Calendar | null, palette = "dark", attribution = true): string {
     const pal = { ...PALETTES[palette] };
-    if (state === "overheat") pal.body = "#ff7b72";
-    const colors = { X: pal.body, p: pal.pink };
+    const colors = {};
     const parts = [
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="contribution graph cat: ${esc(state)}">`,
-        `<title>contribution graph cat - ${esc(state)}</title>`,
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="contribution graph ${esc(current().name)}: ${esc(state)}">`,
+        `<title>contribution graph ${esc(current().name)} - ${esc(state)}</title>`,
         `<rect width="${WIDTH}" height="${HEIGHT}" fill="${pal.bg}"/>`,
     ];
     const weeks = 53;
@@ -113,11 +93,11 @@ export function buildGraphSvg(state: string, caption: string, calendar: Calendar
             }
         }
     }
-    parts.push(...kitty(state, pal, colors, LEFT, LEFT + weeks * STRIDE - 16 * SCALE - 6));
+    parts.push(...kitty(state, pal, colors, LEFT, LEFT + weeks * STRIDE - GRID_W * SCALE - 6));
     let label = `state: ${state} - ${caption}`;
     label += total !== null ? ` · ${total} contributions this year` : " · graph data unavailable";
     label += " · regenerated every 6h";
-    if (attribution) label += " · github-pet by prsdx";
+    if (attribution) label += " · BuffTomo, based on YourTomo by prsdx";
     parts.push(`<text x="16" y="${HEIGHT - 10}" font-family="monospace" font-size="12" fill="${pal.text}">${esc(label)}</text>`);
     parts.push("</svg>");
     return parts.join("\n");

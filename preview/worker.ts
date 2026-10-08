@@ -19,6 +19,7 @@ import { buildGraphSvg } from "../src/graphRender.ts";
 import { buildIsoSvg } from "../src/isoRender.ts";
 import { langsChart, type LangsNote } from "../src/charts.ts";
 import { LANDING_HTML } from "./landing.ts";
+import { resolveMonster, setMonster } from "../src/monsters.ts";
 
 const CACHE_TTL_S = 300;
 type SvgType = "pet" | "isocat" | "graph" | "langs";
@@ -67,6 +68,8 @@ export default {
         }
         const theme = url.searchParams.get("theme") === "light" ? "light" : "dark";
         const force = (url.searchParams.get("state") ?? "").trim();
+        // ?monster=drako - preview any MyBuffBuddy species (part of the cache key via the URL)
+        setMonster(resolveMonster(url.searchParams.get("monster") ?? ""));
         const svgType: SvgType = ((["pet", "isocat", "graph", "langs"] as string[]).includes(url.searchParams.get("type") ?? "")
             ? url.searchParams.get("type")!
             : "pet") as SvgType;

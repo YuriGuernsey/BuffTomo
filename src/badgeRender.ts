@@ -1,4 +1,4 @@
-// shields-style mini badge for repo READMEs: "github-pet | <state>".
+// shields-style mini badge for repo READMEs: "bufftomo | <state>".
 // Self-contained background, so a single file works on both themes.
 // Zero dependencies, like everything else here.
 
@@ -19,15 +19,15 @@ function esc(s: string): string {
 }
 
 export function buildBadgeSvg(state: string, caption: string): string {
-    const label = "github-pet";
+    const label = "bufftomo";
     const value = state;
     const leftW = 92;
     const rightW = Math.max(44, value.length * 7 + 16);
     const w = leftW + rightW, h = 28;
     const color = STATE_COLORS[state] ?? "#6e7681";
     return [
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" role="img" aria-label="github-pet: ${esc(caption)}">`,
-        `<title>github-pet: ${esc(caption)}</title>`,
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" role="img" aria-label="bufftomo: ${esc(caption)}">`,
+        `<title>bufftomo: ${esc(caption)}</title>`,
         `<rect width="${leftW}" height="${h}" rx="4" fill="#24292f"/>`,
         `<rect x="${leftW}" width="${rightW}" height="${h}" rx="4" fill="${color}"/>`,
         `<rect x="${leftW}" width="4" height="${h}" fill="${color}"/>`,

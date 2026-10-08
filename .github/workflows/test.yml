@@ -15,17 +15,19 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       # tokenless on purpose: exercises the fallback path external contributors hit
-      - name: Generate without token
-        run: bun generate.ts
-        env:
-          PET_USER: octocat
-          PET_OUTPUT_DIR: /tmp/pet-test
+      - name: Generate every monster without token
+        run: |
+          for m in beastor drako pumpkin neko shadow random; do
+            PET_USER=octocat PET_MONSTER=$m PET_OUTPUT_DIR=/tmp/pet-test/$m bun generate.ts
+          done
       - name: Verify SVGs are well-formed and non-empty
         run: |
-          for f in pet pet-light graph graph-light isocat isocat-light langs langs-light pet-badge; do
-            file="/tmp/pet-test/$f.svg"
-            test -s "$file" || { echo "missing: $file"; exit 1; }
-            grep -q '<svg' "$file" || { echo "not an svg: $file"; exit 1; }
-            grep -q '</svg>' "$file" || { echo "truncated svg: $file"; exit 1; }
+          for m in beastor drako pumpkin neko shadow random; do
+            for f in pet pet-light graph graph-light isocat isocat-light langs langs-light pet-badge; do
+              file="/tmp/pet-test/$m/$f.svg"
+              test -s "$file" || { echo "missing: $file"; exit 1; }
+              grep -q '<svg' "$file" || { echo "not an svg: $file"; exit 1; }
+              grep -q '</svg>' "$file" || { echo "truncated svg: $file"; exit 1; }
+            done
           done
-          echo "all 8 SVGs OK"
+          echo "all SVGs OK for every monster"

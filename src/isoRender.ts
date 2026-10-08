@@ -1,9 +1,10 @@
 // Renders OUR OWN isometric contribution calendar (full year, real data via
-// GraphQL) with the small front-facing kitty hopping along the weekly peaks.
+// GraphQL) with a small BuffTomo monster hopping along the weekly peaks.
 // Replaces the lowlighter/metrics isocalendar dependency - zero dependencies,
 // pure SMIL. Painter's algorithm: columns drawn far-to-near by (week + day).
 
 import * as sprites from "./sprites.ts";
+import { drawMini, current, GRID_W, GRID_H } from "./monsters.ts";
 import type { Calendar } from "./graphApi.ts";
 
 const WIDTH = 894, HEIGHT = 344; // 344 = fits front-edge month labels for the latest weeks (max y = 336)
@@ -14,7 +15,7 @@ const WEEKS = 53, DAYS = 7;
 const OX = Math.round((WIDTH - (WEEKS - 1 + DAYS - 1) * HX) / 2) + (DAYS - 1) * HX; // center the x span (-6..52)
 const OY = 78;
 const CAT_SCALE = 2;
-const CAT_W = 16 * CAT_SCALE, CAT_H = 14 * CAT_SCALE;
+const CAT_W = GRID_W * CAT_SCALE, CAT_H = GRID_H * CAT_SCALE;
 
 const PALETTES: Record<string, any> = {
     dark: { bg: "#0d1117", body: "#e6edf3", accent: "#58a6ff", pink: "#ff9bce", text: "#8b949e", heart: "#ff7b72", lid: "#0d1117", collar: "#58a6ff", tag: "#39d353", cells: ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"] },
@@ -95,25 +96,7 @@ function kitty(state: string, pal: any, colors: Record<string, string>, path: Ar
         `<g><animateTransform attributeName="transform" type="translate" values="${vals}" keyTimes="${kt}" dur="${dur}s" repeatCount="indefinite"/>`, // hop along the weekly peaks, then back
         `<g><animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 0" keyTimes="0;0.5;1" dur="0.8s" repeatCount="indefinite"/>`,
     ];
-    cat.push(...rectsScaled(sprites.FRONT_BODY, colors));
-    const overlays: Array<[Array<[number, number]>, string]> = [
-        [sprites.FRONT_INNER_EARS, pal.pink],
-        [sprites.FRONT_COLLAR_BAND, pal.collar],
-        [sprites.FRONT_COLLAR_TAG, pal.tag],
-    ];
-    for (const [coords, col] of overlays) {
-        for (const [px, py] of coords) {
-            cat.push(`<rect x="${px * CAT_SCALE}" y="${py * CAT_SCALE}" width="${CAT_SCALE}" height="${CAT_SCALE}" fill="${col}"/>`);
-        }
-    }
-    for (const [wx, wy] of sprites.FRONT_WHISKERS) {
-        const x = wx * CAT_SCALE - (wx < 8 ? 2 * CAT_SCALE : -CAT_SCALE);
-        cat.push(`<rect x="${x}" y="${wy * CAT_SCALE + 1}" width="${3 * CAT_SCALE}" height="1.5" fill="${pal.body}" opacity="0.8"/>`);
-    }
-    const openR = sprites.FRONT_EYES.map(([ex, ey]) => `<rect x="${ex * CAT_SCALE}" y="${ey * CAT_SCALE}" width="${CAT_SCALE}" height="${CAT_SCALE}" fill="${pal.accent}"/>`).join("");
-    const lidR = sprites.FRONT_EYES.map(([ex, ey]) => `<rect x="${ex * CAT_SCALE}" y="${ey * CAT_SCALE}" width="${2 * CAT_SCALE}" height="${CAT_SCALE}" fill="${pal.lid}"/>`).join("");
-    cat.push(`<g><animate attributeName="opacity" values="1;0;1" keyTimes="0;0.96;1" calcMode="discrete" dur="4s" repeatCount="indefinite"/>${openR}</g>`);
-    cat.push(`<g opacity="0"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.96;1" calcMode="discrete" dur="4s" repeatCount="indefinite"/>${lidR}</g>`);
+    cat.push(...drawMini(CAT_SCALE, 0, state, pal.collar));
     if (state === "content") {
         for (const [beg, ox] of [["0.6s", 8 * CAT_SCALE], ["2.1s", 11 * CAT_SCALE]] as Array<[string, number]>) {
             const cells = rectsScaled(sprites.HEART, { h: pal.heart }, ox, -14, 1.5).join("");
@@ -126,11 +109,10 @@ function kitty(state: string, pal: any, colors: Record<string, string>, path: Ar
 
 export function buildIsoSvg(state: string, caption: string, calendar: Calendar | null, palette = "dark", attribution = true): string {
     const pal = { ...PALETTES[palette] };
-    if (state === "overheat") pal.body = "#ff7b72";
-    const colors = { X: pal.body, p: pal.pink };
+    const colors = {};
     const parts = [
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="isometric contribution calendar cat: ${esc(state)}">`,
-        `<title>isometric contribution calendar cat - ${esc(state)}</title>`,
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="isometric contribution calendar ${esc(current().name)}: ${esc(state)}">`,
+        `<title>isometric contribution calendar ${esc(current().name)} - ${esc(state)}</title>`,
         `<rect width="${WIDTH}" height="${HEIGHT}" fill="${pal.bg}"/>`,
     ];
 
@@ -181,7 +163,7 @@ export function buildIsoSvg(state: string, caption: string, calendar: Calendar |
     let label = `state: ${state} - ${caption}`;
     label += total !== null ? ` · ${total} contributions this year` : " · graph data unavailable";
     label += " · regenerated every 6h";
-    if (attribution) label += " · github-pet by prsdx";
+    if (attribution) label += " · BuffTomo, based on YourTomo by prsdx";
     parts.push(`<text x="16" y="${HEIGHT - 10}" font-family="monospace" font-size="12" fill="${pal.text}">${esc(label)}</text>`);
     parts.push("</svg>");
     return parts.join("\n");

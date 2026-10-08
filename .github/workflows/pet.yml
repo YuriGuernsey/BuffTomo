@@ -1,4 +1,4 @@
-name: Update github-pet
+name: Update BuffTomo
 
 on:
   schedule:
@@ -19,11 +19,13 @@ jobs:
       - name: Generate SVGs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PET_TZ_OFFSET_MINUTES: "330"
-          PET_WATCHED_REPOS: "github-pet,platewise-rag,blooddonation"
-          PET_NAME: "shubham"
-          PET_CAT_NAME: ""        # the cat awaits a name
-          PET_CONTACT: "prsdx.dev@gmail.com"
+          PET_USER: ${{ github.repository_owner }}
+          PET_MONSTER: "beastor"          # beastor | drako | pumpkin | neko | shadow | random
+          PET_TZ_OFFSET_MINUTES: "60"     # Guernsey: 60 in summer (BST), 0 in winter
+          PET_WATCHED_REPOS: ""
+          PET_NAME: ""
+          PET_CAT_NAME: ""                # empty = the species name ("Beastor is content")
+          PET_CONTACT: ""
         run: bun generate.ts
 
       - name: Commit updated SVGs
@@ -31,5 +33,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add dist/
-          git diff --cached --quiet || git commit -m "Update pet state [skip ci]"
+          git diff --cached --quiet || git commit -m "Update BuffTomo state [skip ci]"
           git push

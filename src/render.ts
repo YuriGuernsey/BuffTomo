@@ -1,6 +1,6 @@
-// Renders the banner scene: the cat lives a little life on a master timeline -
-// scoots to its bowl, eats (head bobs), scoots to the yarn, bats it (paw +
-// yarn rolls), then scoots home. State overrides:
+// Renders the banner scene: the monster lives a little life on a master timeline -
+// scoots to its bowl, eats (head bobs), scoots to the dumbbell, bats it (paw +
+// dumbbell rolls), then scoots home. State overrides:
 //   hungry  -> camps at the empty bowl all day
 //   grumpy  -> sulks in the cardboard box with angry brows
 //   zoomies -> the whole routine at 2x with motion lines
@@ -9,6 +9,7 @@
 // (Also fixes a latent bug: the yarn ball was drawn at y=0 instead of ground level.)
 
 import * as sprites from "./sprites.ts";
+import { current, colorsFor, brows, shades, HEAD_ROWS, BODY_ROWS, PAW_TUCKED, PAW_EXTENDED, PAW_WAVE, type TintedPx, type Px } from "./monsters.ts";
 import { skyPhase } from "./state.ts";
 
 const PX = 6;
@@ -58,18 +59,33 @@ function pixels(coords: Array<[number, number]>, color: string, x0: number, y0: 
     return coords.map(([cx, cy]) => `<rect x="${x0 + cx * scale}" y="${y0 + cy * scale}" width="${scale}" height="${scale}" fill="${color}"/>`);
 }
 
-function blink(pal: Pal, y0: number): string[] {
-    const openR = pixels(sprites.SIT_EYES, pal.accent, 0, y0).join("");
-    const lidR = pixels(sprites.SIT_EYES, pal.lid, 0, y0).join("");
+function tinted(coords: TintedPx[], colors: Record<string, string>, x0: number, y0: number, scale = PX): string[] {
+    return coords.map(([cx, cy, ch]) => `<rect x="${x0 + cx * scale}" y="${y0 + cy * scale}" width="${scale}" height="${scale}" fill="${colors[ch ?? "X"] ?? colors.X}"/>`);
+}
+
+// headband/belt pixels split between the bobbing head and the static body
+function bandPixels(pal: Pal, y0: number, onHead: boolean): string[] {
+    const m = current();
+    if (!m.band) return [];
+    const [, h1] = HEAD_ROWS;
+    const coords = m.band.filter(([, y]) => (y <= h1) === onHead);
+    return pixels(coords, m.bandColor ?? pal.collar, 0, y0);
+}
+
+function blink(colors: Record<string, string>, y0: number): string[] {
+    const m = current();
+    const openR = pixels(m.eyes, m.eye, 0, y0).join("");
+    const lidR = pixels(m.eyes, colors[m.lid] ?? colors.X, 0, y0).join("");
     return [
         `<g><animate attributeName="opacity" values="1;0;1" keyTimes="0;0.96;1" calcMode="discrete" dur="4.2s" repeatCount="indefinite"/>${openR}</g>`,
         `<g opacity="0"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.96;1" calcMode="discrete" dur="4.2s" repeatCount="indefinite"/>${lidR}</g>`,
     ];
 }
 
-function tailWag(pal: Pal, y0: number, dur = "1.4s"): string[] {
-    const a = pixels(sprites.TAIL_A, pal.body, 0, y0).join("");
-    const b = pixels(sprites.TAIL_B, pal.body, 0, y0).join("");
+function tailWag(colors: Record<string, string>, y0: number, dur = "1.4s"): string[] {
+    const m = current();
+    const a = tinted(m.tailA, colors, 0, y0).join("");
+    const b = tinted(m.tailB, colors, 0, y0).join("");
     return [
         `<g><animate attributeName="opacity" values="1;0;1" keyTimes="0;0.5;1" calcMode="discrete" dur="${dur}" repeatCount="indefinite"/>${a}</g>`,
         `<g opacity="0"><animate attributeName="opacity" values="0;1;0" keyTimes="0;0.5;1" calcMode="discrete" dur="${dur}" repeatCount="indefinite"/>${b}</g>`,
@@ -77,7 +93,8 @@ function tailWag(pal: Pal, y0: number, dur = "1.4s"): string[] {
 }
 
 function headGroup(state: string, pal: Pal, colors: Record<string, string>, y0: number, masterDur: number, eatWindow?: [number, number], begin = 0): string[] {
-    const [h0, h1] = sprites.SIT_HEAD_ROWS;
+    const [h0, h1] = HEAD_ROWS;
+    const m = current();
     const head: string[] = [];
     if (eatWindow) {
         const [w0, w1] = eatWindow;
@@ -89,26 +106,24 @@ function headGroup(state: string, pal: Pal, colors: Record<string, string>, y0: 
     } else {
         head.push("<g>");
     }
-    head.push(...rects(sprites.SIT_FRONT.slice(h0, h1 + 1), colors, 0, y0));
-    head.push(...pixels(sprites.SIT_INNER_EARS, PAL_CURRENT.pink, 0, y0));
-    head.push(...pixels(sprites.SIT_WHISKERS, pal.body, 0, y0));
-    head.push(...blink(pal, y0));
-    if (state === "grumpy") head.push(...pixels(sprites.SIT_BROWS, pal.accent, 0, y0));
+    head.push(...rects(m.grid.slice(h0, h1 + 1), colors, 0, y0));
+    head.push(...bandPixels(pal, y0, true));
+    head.push(...blink(colors, y0));
+    if (state === "grumpy") head.push(...pixels(brows(m), m.eye, 0, y0));
     head.push("</g>");
     return head;
 }
 
 function bodyGroup(pal: Pal, colors: Record<string, string>, y0: number, masterDur: number, batWindow?: [number, number], wag = "1.4s", begin = 0): string[] {
-    const [b0, b1] = sprites.SIT_BODY_ROWS;
-    const body = rects(sprites.SIT_FRONT.slice(b0, b1 + 1), colors, 0, y0 + b0 * PX);
-    body.push(...pixels(sprites.SIT_COLLAR_BAND, PAL_CURRENT.collar, 0, y0));
-    body.push(...pixels(sprites.SIT_COLLAR_TAG, PAL_CURRENT.tag, 0, y0));
-    body.push(...tailWag(pal, y0, wag));
+    const [b0, b1] = BODY_ROWS;
+    const body = rects(current().grid.slice(b0, b1 + 1), colors, 0, y0 + b0 * PX);
+    body.push(...bandPixels(pal, y0, false));
+    body.push(...tailWag(colors, y0, wag));
     if (batWindow) {
         const [w0, w1] = batWindow;
         const mid = (w0 + w1) / 2.0;
-        const tucked = pixels(sprites.PAW_TUCKED, pal.body, 0, y0).join("");
-        const out = pixels(sprites.PAW_EXTENDED, pal.body, 0, y0).join("");
+        const tucked = pixels(PAW_TUCKED, colors.X, 0, y0).join("");
+        const out = pixels(PAW_EXTENDED, colors.X, 0, y0).join("");
         const kt = `0;${w0.toFixed(3)};${mid.toFixed(3)};${w1.toFixed(3)};1`;
         body.push(`<g><animate attributeName="opacity" values="1;1;0;0;1" keyTimes="${kt}" calcMode="discrete" dur="${masterDur}s" begin="${begin}s" repeatCount="indefinite"/>${tucked}</g>`);
         body.push(`<g opacity="0"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="${kt}" calcMode="discrete" dur="${masterDur}s" begin="${begin}s" repeatCount="indefinite"/>${out}</g>`);
@@ -126,8 +141,9 @@ function hearts(pal: Pal): string[] {
 }
 
 function yarnProp(pal: Pal, masterDur: number, batWindow?: [number, number], begin = 0): string[] {
-    const y0 = GROUND_Y - 6 * PX;
-    const cells = rects(sprites.YARN, { h: pal.yarn }, 0, y0);
+    // the "yarn" slot holds a dumbbell in BuffTomo - batting it is training
+    const y0 = GROUND_Y - sprites.DUMBBELL.length * PX;
+    const cells = rects(sprites.DUMBBELL, { w: pal.yarn, b: pal.text }, 0, y0);
     if (batWindow) {
         const [w0, w1] = batWindow;
         const kt = `0;${w0.toFixed(3)};${(w0 + 0.03).toFixed(3)};${w1.toFixed(3)};${Math.min(w1 + 0.08, 0.99).toFixed(3)};1`;
@@ -158,20 +174,27 @@ function props(pal: Pal, colors: Record<string, string>, state: string, masterDu
 function zzz(pal: Pal): string[] {
     const out: string[] = [];
     for (const [dx, size, beg] of [[0, 12, "0s"], [14, 15, "1s"], [30, 18, "2s"]] as Array<[number, number, string]>) {
-        out.push(`<text x="${170 + dx}" y="80" font-family="monospace" font-size="${size}" fill="${pal.accent}" opacity="0">z<animateTransform attributeName="transform" type="translate" values="0 0;8 -26" dur="3s" begin="${beg}" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.25;0.75;1" dur="3s" begin="${beg}" repeatCount="indefinite"/></text>`);
+        out.push(`<text x="${214 + dx}" y="76" font-family="monospace" font-size="${size}" fill="${pal.accent}" opacity="0">z<animateTransform attributeName="transform" type="translate" values="0 0;8 -26" dur="3s" begin="${beg}" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.25;0.75;1" dur="3s" begin="${beg}" repeatCount="indefinite"/></text>`);
     }
     return out;
 }
 
 function sleepingCat(pal: Pal, colors: Record<string, string>, topLang = ""): string[] {
-    const y0 = GROUND_Y - 14 * PX;
-    const parts = rects(sprites.CURL_BODY, colors, 90, y0);
-    for (const [ex, ey] of sprites.CURL_LIDS) {
-        parts.push(`<rect x="${90 + ex * PX}" y="${y0 + ey * PX}" width="${PX}" height="${PX}" fill="${pal.lid}"/>`);
+    const m = current();
+    const x0 = HOME_X, y0 = CAT_Y;
+    const parts = [`<g><animateTransform attributeName="transform" type="translate" values="0 0;0 3;0 0" dur="3s" repeatCount="indefinite"/>`];
+    parts.push(...rects(m.grid, colors, x0, y0));
+    parts.push(...pixels(m.band ?? [], m.bandColor ?? pal.collar, x0, y0));
+    parts.push(...tinted(m.tailA, colors, x0, y0));
+    // closed eyes: paint the lid, then a sleepy dash
+    for (const [ex, ey] of m.eyes) {
+        parts.push(`<rect x="${x0 + ex * PX}" y="${y0 + ey * PX}" width="${PX}" height="${PX}" fill="${colors[m.lid] ?? colors.X}"/>`);
+        parts.push(`<rect x="${x0 + ex * PX - 2}" y="${y0 + ey * PX + PX / 2}" width="${PX + 4}" height="2" fill="${m.eye}"/>`);
     }
+    parts.push("</g>");
     parts.push(...zzz(pal));
     if (topLang) {
-        parts.push(`<text x="215" y="52" font-family="monospace" font-style="italic" font-size="12" fill="${pal.text}">dreaming in ${esc(topLang)}</text>`);
+        parts.push(`<text x="262" y="52" font-family="monospace" font-style="italic" font-size="12" fill="${pal.text}">dreaming in ${esc(topLang)}</text>`);
     }
     return parts;
 }
@@ -326,10 +349,10 @@ function routineCat(state: string, pal: Pal, colors: Record<string, string>, wee
     cat.push(...bodyGroup(pal, colors, CAT_Y, dur, [0.66, 0.78], "1.4s", INTRO_S));
     cat.push(...headGroup(state, pal, colors, CAT_Y, dur, [0.15, 0.33], INTRO_S));
     // raised-paw wave while the cat sits at home (master-timeline windows 0-0.12, 0.82-1)
-    const wave = pixels(sprites.PAW_WAVE, pal.body, 0, CAT_Y).join("");
+    const wave = pixels(PAW_WAVE, colors.X, 0, CAT_Y).join("");
     cat.push(`<g opacity="0"><animate attributeName="opacity" values="1;1;0;0;1;1" keyTimes="0;0.12;0.13;0.82;0.83;1" calcMode="discrete" dur="${dur}s" begin="${INTRO_S}s" repeatCount="indefinite"/>` +
         `<g><animate attributeName="opacity" values="1;0;1" calcMode="discrete" dur="0.5s" repeatCount="indefinite"/>${wave}</g></g>`);
-    if (weekendShades) cat.push(...pixels(sprites.SHADES, pal.shades, 0, CAT_Y));
+    if (weekendShades) cat.push(...pixels(shades(current()), pal.shades, 0, CAT_Y));
     if (state === "content") cat.push(...hearts(pal));
     if (state === "zoomies") {
         [[-46, 30], [-64, 55], [-40, 80]].forEach(([ox, oy], i) => {
@@ -370,11 +393,10 @@ export function buildSvg(state: string, caption: string, palette = "dark", greet
         pal.accent = opts.accent;
         pal.collar = opts.accent;
     }
-    if (state === "overheat") pal.body = "#ff7b72";
-    const colors = { X: pal.body, p: pal.pink };
+    const colors = colorsFor(current(), state);
     const parts = [
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="github pet: ${esc(state)}">`,
-        `<title>github pet - ${esc(state)}</title>`,
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="${esc(current().name)}: ${esc(state)}">`,
+        `<title>${esc(current().name)} - ${esc(state)}</title>`,
         `<rect width="${WIDTH}" height="${HEIGHT}" fill="${pal.bg}"/>`,
         ...sky(pal, skyPhase(opts.hour ?? 12), palette === "dark"),
         `<line x1="0" y1="${GROUND_Y}" x2="${WIDTH}" y2="${GROUND_Y}" stroke="${pal.ground}" stroke-width="2" stroke-dasharray="8 8"/>`,
@@ -382,7 +404,7 @@ export function buildSvg(state: string, caption: string, palette = "dark", greet
     if ((opts.streakDays ?? 0) >= 3) parts.push(...fireProp(pal));
     if (opts.touchGrass) parts.push(...signProp(pal));
     if (opts.birthday) parts.push(...cakeProp(pal));
-    if (opts.seasonal === "pumpkin") parts.push(...rects(sprites.PUMPKIN, { o: pal.pumpkin, g: pal.tag }, 150, GROUND_Y - 7 * 3, 3));
+    if (opts.seasonal === "pumpkin") parts.push(...rects(sprites.PUMPKIN, { o: pal.pumpkin, g: pal.tag }, 252, GROUND_Y - 7 * 3, 3));
     if (opts.seasonal === "nye") parts.push(...fireworksProp(pal));
     const shadesOn = !!opts.weekend && ["content", "zoomies", "release"].includes(state);
     if (opts.weekend && state !== "sleeping" && state !== "hibernating") {
@@ -404,7 +426,7 @@ export function buildSvg(state: string, caption: string, palette = "dark", greet
     if (opts.birthday) label += " · it is my github birthday!!";
     if (opts.labelExtra && opts.labelExtra.length) label += ` · ${opts.labelExtra.join(" · ")}`;
     label += " · regenerated every 6h";
-    if (attribution) label += " · github-pet by prsdx";
+    if (attribution) label += " · BuffTomo, based on YourTomo by prsdx";
     parts.push(`<text x="16" y="${HEIGHT - 10}" font-family="monospace" font-size="12" fill="${pal.text}">${esc(label)}</text>`);
     parts.push("</svg>");
     return parts.join("\n");

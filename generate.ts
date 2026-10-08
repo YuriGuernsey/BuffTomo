@@ -1,4 +1,4 @@
-// github-pet generator: builds dist/*.svg from live GitHub data.
+// BuffTomo generator (fork of YourTomo/github-pet): builds dist/*.svg from live GitHub data.
 // Zero-dependency TypeScript - runs on Bun (CI) or Node 24+ (type stripping).
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
@@ -11,8 +11,9 @@ import { buildGraphSvg } from "./src/graphRender.ts";
 import { buildIsoSvg } from "./src/isoRender.ts";
 import { buildBadgeSvg } from "./src/badgeRender.ts";
 import { langsChart } from "./src/charts.ts";
+import { resolveMonster, setMonster } from "./src/monsters.ts";
 
-const USER = process.env.PET_USER || "prsdx";
+const USER = process.env.PET_USER || process.env.GITHUB_REPOSITORY_OWNER || "octocat";
 const OUT_DIR = process.env.PET_OUTPUT_DIR || "dist";
 const CONTACT = process.env.PET_CONTACT || "";
 const ATTRIBUTION = !["0", "false", "no"].includes((process.env.PET_ATTRIBUTION ?? "").toLowerCase());
@@ -24,8 +25,12 @@ async function main(): Promise<void> {
     const [calendar, activity] = await Promise.all([fetchCalendar(token, USER), fetchActivity(token, USER)]);
     const ci = await fetchCiStatus(USER);
     const openIssues = await fetchOpenIssues(USER);
-    const catName = process.env.PET_CAT_NAME || "";
     const now = new Date();
+    // which MyBuffBuddy monster moves in (beastor, drako, pumpkin, neko, shadow, or random)
+    const monster = resolveMonster(process.env.PET_MONSTER, now);
+    setMonster(monster);
+    // captions read "Drako is sleeping" unless you give your monster its own name
+    const catName = process.env.PET_CAT_NAME || monster.name;
     let status = decide(events, {
         lastPush: activity?.lastPush ?? null,
         merged24h: activity?.merged24h ?? 0,
@@ -92,7 +97,7 @@ async function main(): Promise<void> {
     }
     writeFileSync(statePath, JSON.stringify({ stars, followers, updatedAt: now.toISOString() }, null, 2) + "\n", "utf-8");
     console.log(`wrote ${statePath} (stars=${stars} followers=${followers})`);
-    console.log(`state=${status.state} | caption='${status.caption}' | apiOk=${status.apiOk} | ci_failed=${ci.failed} | openIssues=${openIssues} | streak=${streak}`);
+    console.log(`monster=${monster.id} | state=${status.state} | caption='${status.caption}' | apiOk=${status.apiOk} | ci_failed=${ci.failed} | openIssues=${openIssues} | streak=${streak}`);
     console.log(`calendar=${calendar ? calendar.total + " contributions" : "unavailable"} | lastPush=${activity?.lastPush ?? "?"} | events=${events.length} repos=${repos.length} langs=${Object.keys(langs).length}`);
 }
 
